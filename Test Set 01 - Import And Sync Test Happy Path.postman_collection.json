@@ -1,0 +1,392 @@
+{
+	"info": {
+		"_postman_id": "2c472aaa-b502-44b0-9f23-944ea0894474",
+		"name": "Test Set 01 - Import And Sync Test Happy Path",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Step 01 - Simple Import Test",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Step 01\", function () {",
+							"    console.log(\"id\",pm.collectionVariables.get(\"contractID\"));",
+							"    let jsonData = pm.response.json();",
+							"    pm.response.to.have.status(200);",
+							"    pm.expect(jsonData.result).to.eql(\"SUCCESS\");",
+							"    let contractRecords = jsonData.totalContractRecords;",
+							"    pm.expect(jsonData.totalSuccessContractRecords).to.eql(contractRecords);",
+							"    pm.expect(jsonData.totalFailureContractRecords).to.eql(0);",
+							"});",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "[{{body}}]",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{SERVER}}/api/V002/Importer/Contracts",
+					"host": [
+						"{{SERVER}}"
+					],
+					"path": [
+						"api",
+						"V002",
+						"Importer",
+						"Contracts"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Step 02 - Get the imported contract",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Step 02\", function () {",
+							"    pm.response.to.have.status(200);",
+							"    let jsonData = pm.response.json();",
+							"    let expected = JSON.parse(pm.environment.get(\"expectedReturn\"));",
+							"    recursiveTest(jsonData, expected);",
+							"    pm.environment.set(\"body\", JSON.stringify(jsonData));",
+							"});",
+							"",
+							"function recursiveTest(jsonData, expected){",
+							"    for (key in expected){",
+							"        let value = expected[key];",
+							"        if (!(value instanceof Object))",
+							"        pm.expect(jsonData[key]).to.eql(value);",
+							"        else{",
+							"        recursiveTest(jsonData[key], value);",
+							"        }",
+							"    }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SERVER}}/api/SyncOut/RetrieveContract/{{contractID}}",
+					"host": [
+						"{{SERVER}}"
+					],
+					"path": [
+						"api",
+						"SyncOut",
+						"RetrieveContract",
+						"{{contractID}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Step 03 - Modify imported contract",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"let body = pm.environment.get(\"body\");",
+							"var newData = JSON.parse(body);",
+							"newData.customer.firstName = \"Olivia TEST\";",
+							"pm.environment.set(\"body\", JSON.stringify(newData));"
+						],
+						"type": "text/javascript"
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Step 03\", function () {",
+							"    let jsonData = pm.response.json();",
+							"    pm.response.to.have.status(200);",
+							"    pm.expect(jsonData.isSuccessful).to.be.true;",
+							"    pm.expect(jsonData.SyncMessage).to.eql(\"Contract updated\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{{body}}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{SERVER}}/api/V002/SyncIn/Contract",
+					"host": [
+						"{{SERVER}}"
+					],
+					"path": [
+						"api",
+						"V002",
+						"SyncIn",
+						"Contract"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Step 04 - Make sure the modifications are applied",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Step 04\", function () {",
+							"    pm.response.to.have.status(200);",
+							"    let jsonData = pm.response.json();",
+							"    pm.expect(jsonData.customer.firstName).to.eql(\"Olivia TEST\");",
+							"});",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{SERVER}}/api/SyncOut/RetrieveContract/{{contractID}}",
+					"host": [
+						"{{SERVER}}"
+					],
+					"path": [
+						"api",
+						"SyncOut",
+						"RetrieveContract",
+						"{{contractID}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"let efsToken = pm.collectionVariables.get(\"efsToken\");",
+					"pm.request.headers.upsert({",
+					"    key: \"efsToken\",",
+					"    value: efsToken",
+					"});",
+					"let body = {",
+					"        \"apiVersion\": \"2.0\",",
+					"        \"sellerACode\": \"A10177\",",
+					"        \"contractNumber\": pm.collectionVariables.get(\"contractID\"),",
+					"        \"customerNumber\": \"EDGE0JR84C2\",",
+					"        \"contractStatus\": \"Active\",",
+					"        \"salesperson1Commission\": \"\",",
+					"        \"salesperson2Commission\": \"\",",
+					"        \"dealStatus\": \"\",",
+					"        \"leadSource\": \"\",",
+					"        \"netProfit\": \"\",",
+					"        \"listCode\": \"PCMI\",",
+					"        \"salesperson1\": \"Edge6\",",
+					"        \"salesperson2\": \"nida\",",
+					"        \"financeFee\": \"\",",
+					"        \"discount\": \"\",",
+					"        \"sellerName\": \"Edge\",",
+					"        \"administratorName\": \"OMEG\",",
+					"        \"administratorCost\": \"0\",",
+					"        \"customer\": {",
+					"            \"firstName\": \"Olivia\",",
+					"            \"lastName\": \"Chavez\",",
+					"            \"streetAddress\": \"1817 Evergreen St apt C\",",
+					"            \"city\": \"Santa Ana\",",
+					"            \"stateProvince\": \"CA\",",
+					"            \"zipPostalCode\": \"92707\",",
+					"            \"primaryPhone\": \"\",",
+					"            \"secondaryPhone\": \"7142900987\",",
+					"            \"customerEmailAddress\": \"silverado455@icloud.com\"",
+					"        },",
+					"        \"paymentDetails\": {",
+					"            \"billProcess\": \"CREDIT\",",
+					"            \"achRoutingNumber\": \"\",",
+					"            \"achAccountNumber\": \"\",",
+					"            \"achBankType\": \"\",",
+					"            \"creditCardNumber\": \"4242424242424242\",",
+					"            \"creditCardExp\": \"02-2022\"",
+					"        },",
+					"        \"coveragePlan\": {",
+					"            \"planType\": \"MAINTENANCE\",",
+					"            \"planCode\": \"P0090\",",
+					"            \"planName\": \"Drive America Select B\",",
+					"            \"effectiveDate\": \"2021-03-19\",",
+					"            \"coverageExpirationDate\": \"04\\/18\\/2021\",",
+					"            \"coverageTerm\": \"24\",",
+					"            \"vehicleCoveragePlan\": {",
+					"                \"coverageType\": \"M2M\",",
+					"                \"coverageLevel\": \"DA Select B\",",
+					"                \"coverageDeductable\": null,",
+					"                \"coverageMileage\": \"999999\",",
+					"                \"coverageExpirationMiles\": \"\",",
+					"                \"odometerAtSale\": \"9000\",",
+					"                \"vehicle\": {",
+					"                    \"vin\": \"99999999999999999\",",
+					"                    \"make\": \"toyota \",",
+					"                    \"model\": \"camry\",",
+					"                    \"vehicleClass\": \"1\",",
+					"                    \"year\": \"2020\",",
+					"                    \"odometer\": \"9000\",",
+					"                    \"subModel\": \"\"",
+					"                },",
+					"                \"paymentPlan\": {",
+					"                    \"totalRetailPrice\": \"215.76\",",
+					"                    \"paymentPlanAmount\": \"215.76\",",
+					"                    \"downPayment\": \"0\",",
+					"                    \"numberOfMonthlyPayments\": \"24\",",
+					"                    \"monthlyPaymentAmount\": \"8.99\",",
+					"                    \"billCycle\": \"M\",",
+					"                    \"billProcess\": \"CREDIT\",",
+					"                    \"firstDueDate\": \"2040-03-19\"",
+					"                }",
+					"            }",
+					"        }",
+					"    };",
+					"",
+					"let expectedReturn = {",
+					"    \"apiVersion\": \"2.0\",",
+					"    \"sellerACode\": \"A10177\",",
+					"    \"contractNumber\": pm.collectionVariables.get(\"contractID\"),",
+					"    \"customerNumber\": \"EDGE0JR84C2\",",
+					"    \"contractStatus\": \"Pending\",",
+					"    \"salesperson1Commission\": \"0.000000\",",
+					"    \"salesperson2Commission\": \"0.000000\",",
+					"    \"dealStatus\": \"Sold\",",
+					"    \"leadSource\": \"\",",
+					"    \"netProfit\": \"0.000000\",",
+					"    \"listCode\": \"PCMI\",",
+					"    \"salesperson1\": \"Edge6\",",
+					"    \"salesperson2\": \"nida\",",
+					"    \"financeFee\": \"46.000000\",",
+					"    \"discount\": \"0.000000\",",
+					"    \"sellerName\": \"\",",
+					"    \"administratorName\": \"OMEG\",",
+					"    \"administratorCost\": \"95.760000\",",
+					"    \"customer\": {",
+					"        \"firstName\": \"Olivia\",",
+					"        \"lastName\": \"Chavez\",",
+					"        \"streetAddress\": \"1817 Evergreen St apt C\",",
+					"        \"city\": \"Santa Ana\",",
+					"        \"stateProvince\": \"CA\",",
+					"        \"zipPostalCode\": \"92707\",",
+					"        \"primaryPhone\": \"\",",
+					"        \"secondaryPhone\": \"7142900987\",",
+					"        \"customerEmailAddress\": \"silverado455@icloud.com\"",
+					"    },",
+					"    \"paymentDetails\": {",
+					"        \"billProcess\": \"CREDIT\",",
+					"        \"achRoutingNumber\": \"XXX\",",
+					"        \"achAccountNumber\": \"XXX\",",
+					"        \"achBankType\": \"XXX\",",
+					"        \"creditCardNumber\": \"XXX\",",
+					"        \"creditCardExp\": \"12-3030\"",
+					"    },",
+					"    \"coveragePlan\": {",
+					"        \"planType\": \"MAINTENANCE\",",
+					"        \"planCode\": \"P0090\",",
+					"        \"planName\": \"Drive America Select B\",",
+					"        \"effectiveDate\": \"3/19/2021 12:00:00 AM\",",
+					"        \"coverageExpirationDate\": \"4/18/2021 12:00:00 AM\",",
+					"        \"coverageTerm\": \"24\",",
+					"        \"vehicleCoveragePlan\": {",
+					"            \"coverageType\": \"M2M\",",
+					"            \"coverageLevel\": \"DA Select B\",",
+					"            \"coverageDeductable\": \"0.000000\",",
+					"            \"coverageMileage\": \"0\",",
+					"            \"coverageExpirationMiles\": \"0\",",
+					"            \"odometerAtSale\": \"\",",
+					"            \"vehicle\": {",
+					"                \"vin\": \"99999999999999999\",",
+					"                \"make\": \"toyota\",",
+					"                \"model\": \"camry\",",
+					"                \"vehicleClass\": \"1\",",
+					"                \"year\": \"2020\",",
+					"                \"odometer\": \"9000\",",
+					"                \"subModel\": \"\"",
+					"            },",
+					"            \"paymentPlan\": {",
+					"                \"totalRetailPrice\": \"215.760000\",",
+					"                \"paymentPlanAmount\": \"215.760000\",",
+					"                \"downPayment\": \"0.000000\",",
+					"                \"numberOfMonthlyPayments\": \"24\",",
+					"                \"monthlyPaymentAmount\": \"8.990000\",",
+					"                \"billCycle\": \"M\",",
+					"                \"firstDueDate\": \"3/19/2040 12:00:00 AM\"",
+					"            }",
+					"        }",
+					"    }",
+					"};",
+					"pm.environment.set(\"body\", JSON.stringify(body));",
+					"pm.environment.set(\"expectedReturn\", JSON.stringify(expectedReturn));",
+					"console.log(\"Body\", pm.environment.get('expectedReturn'));",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"id": "5e59ace4-a12a-4e6d-a0c3-fbd6d5fd4264",
+			"key": "SERVER",
+			"value": "https://efs-api-test.azurewebsites.net"
+		},
+		{
+			"id": "6cb9703d-796e-4c79-88bb-4c82a692bdce",
+			"key": "efsToken",
+			"value": "F6F1FF3B28368C43BAFD3CE8FDF059B5 20210409123000"
+		},
+		{
+			"id": "fb2b8cc1-9669-4e7a-ba5b-d9c0f11815e8",
+			"key": "contractID",
+			"value": "EDGE0JR84C2"
+		}
+	]
+}
